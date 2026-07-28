@@ -1,0 +1,194 @@
+name: Build Helium .xbps
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.build.outputs.version }}
+      filename: ${{ steps.build.outputs.filename }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install xbps-create
+        run: |
+          curl -sL "https://repo-default.voidlinux.org/static/xbps-static-latest.x86_64-musl.tar.xz" \
+            -o /tmp/xbps.tar.xz
+          sudo tar xf /tmp/xbps.tar.xz -C /usr/local/bin \
+            --strip-components=3 ./usr/bin/xbps-create
+          sudo chmod +x /usr/local/bin/xbps-create
+          xbps-create --version
+
+      - name: Build .xbps
+        id: build
+        run: |
+          set -e
+          PKGNAME="helium-bin"
+          
+          echo "[*] Fetching latest release from imputnet/helium-linux..."
+          API_JSON=$(curl -s "https://api.github.com/repos/imputnet/helium-linux/releases/latest")
+          
+          DOWNLOAD_URL=$(echo "$API_JSON" | jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url')
+          DEB_FILE=$(echo "$API_JSON" | jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .name')
+          UPSTREAM_VERSION=$(echo "$DEB_FILE" | sed 's/helium-bin_\(.*\)_amd64.deb/\1/')
+          TAG=$(echo "$API_JSON" | jq -r '.tag_name')
+          
+          if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+            echo "ERROR: Could not find amd64 .deb in latest release."
+            exit 1
+          fi
+          echo "  Upstream: $UPSTREAM_VERSION (tag $TAG)"
+          
+          # Download upstream .deb
+          echo "[*] Downloading $DEB_FILE..."
+          curl -sL -o "$DEB_FILE" "$DOWNLOAD_URL"
+          echo "  Downloaded: $(du -h "$DEB_FILE" | cut -f1)"
+          
+          # Extract .deb
+          echo "[*] Extracting..."
+          rm -rf deb-root pkg-destdir
+          mkdir -p deb-root pkg-destdir
+          cd deb-root
+          ar x "../$DEB_FILE"
+          tar xf data.tar.xz -C .
+          tar xf control.tar.xz -C /tmp
+          cd "$OLDPWD"
+          
+          # Size optimizations
+          echo "[*] Optimizing size..."
+          BEFORE=$(du -sb deb-root | awk '{print $1}')
+          rm -f deb-root/opt/helium/chromedriver
+          find deb-root/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
+          find deb-root/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
+          AFTER=$(du -sb deb-root | awk '{print $1}')
+          SAVED=$(( (BEFORE - AFTER) / 1048576 ))
+          echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
+          
+          # Build .xbps destdir
+          echo "[*] Creating .xbps package structure..."
+          cp -a deb-root/opt pkg-destdir/
+          cp -a deb-root/usr pkg-destdir/
+          
+          # Wrapper
+          mkdir -p pkg-destdir/usr/bin
+          rm -f pkg-destdir/usr/bin/helium
+          cat > pkg-destdir/usr/bin/helium << 'WRAPPER'
+          #!/bin/sh
+          export CHROME_VERSION_EXTRA="void-xbps"
+          CHROME_WRAPPER="$(readlink -f "$0")"
+          export CHROME_WRAPPER
+          export LD_LIBRARY_PATH="/opt/helium:${LD_LIBRARY_PATH}"
+          exec /opt/helium/helium "$@"
+          WRAPPER
+          chmod 755 pkg-destdir/usr/bin/helium
+          
+          # INSTALL script
+          cat > pkg-destdir/INSTALL << 'INSTSCRIPT'
+          case "${ACTION}" in
+          post)
+              chown -R root:root /opt/helium/ 2>/dev/null || true
+              update-desktop-database 2>/dev/null || true
+              touch --no-create /usr/share/icons/hicolor 2>/dev/null || true
+              gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
+              if command -v apparmor_parser > /dev/null 2>&1 && [ -d /etc/apparmor.d ]; then
+                  cp /opt/helium/apparmor.cfg /etc/apparmor.d/helium-bin 2>/dev/null || true
+                  apparmor_parser -r -W -T /etc/apparmor.d/helium-bin 2>/dev/null || true
+              fi
+              ;;
+          esac
+          INSTSCRIPT
+          chmod 755 pkg-destdir/INSTALL
+          
+          # REMOVE script
+          cat > pkg-destdir/REMOVE << 'REMSRIPT'
+          case "${ACTION}" in
+          post)
+              update-desktop-database 2>/dev/null || true
+              touch --no-create /usr/share/icons/hicolor 2>/dev/null || true
+              gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
+              if [ -f /etc/apparmor.d/helium-bin ]; then
+                  command -v apparmor_parser > /dev/null 2>&1 && apparmor_parser -R /etc/apparmor.d/helium-bin 2>/dev/null || true
+                  rm -f /etc/apparmor.d/helium-bin
+              fi
+              ;;
+          esac
+          REMSRIPT
+          chmod 755 pkg-destdir/REMOVE
+          
+          # Detect shared libs
+          SHLIBS=$(readelf -d pkg-destdir/opt/helium/helium 2>/dev/null \
+            | grep NEEDED | awk '{print $NF}' | tr -d '[]' | tr '\n' ' ')
+          
+          # Build .xbps
+          XBPS_VERSION="${UPSTREAM_VERSION}_1"
+          xbps-create \
+            -A x86_64 \
+            -n "${PKGNAME}-${XBPS_VERSION}" \
+            -s "Helium - privacy-first Chromium-based web browser" \
+            -S "Helium is a privacy-first web browser based on Chromium.
+          It features unbiased ad-blocking, no bloat, and no noise.
+          Built for people, with love." \
+            -m "Zeke Ezequielgk <ezequieldtz@tuta.io>" \
+            -H "https://helium.computer" \
+            -l "GPL-3.0-only" \
+            -t "web-browser" \
+            --provides "www-browser-0_1" \
+            --compression zstd \
+            --shlib-requires "$SHLIBS" \
+            pkg-destdir
+          
+          XBPS_FILE="${PKGNAME}-${XBPS_VERSION}.x86_64.xbps"
+          echo "  Package: $XBPS_FILE ($(du -h "$XBPS_FILE" | cut -f1))"
+          
+          echo "version=$XBPS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "filename=$XBPS_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Upload .xbps artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helium-xbps
+          path: "*.xbps"
+          retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: helium-xbps
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build.outputs.version }}
+          name: Helium ${{ needs.build.outputs.version }} (xbps)
+          body: |
+            ## Helium — Void Linux .xbps package
+
+            - **Upstream:** [imputnet/helium-linux](https://github.com/imputnet/helium-linux)
+            - **Version:** ${{ needs.build.outputs.version }}
+            - **Arch:** x86_64
+
+            ### Install
+            ```sh
+            sudo xbps-install -y ./helium-bin-*.x86_64.xbps
+            ```
+
+            ### Size optimizations
+            - chromedriver removed (21 MB)
+            - .info debug files removed (65 MB)
+            - Only en-US locale kept (45 MB saved)
+          files: |
+            *.xbps
+          draft: false
+          prerelease: false

@@ -1,0 +1,10 @@
+# Built packages
+*.xbps
+
+# Temp directories
+pkg-destdir/
+deb-root/
+/tmp/helium-ctrl/
+
+# Downloaded upstream .deb
+*.deb
