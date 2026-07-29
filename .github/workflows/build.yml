@@ -20,9 +20,10 @@ jobs:
         run: |
           curl -sL "https://repo-default.voidlinux.org/static/xbps-static-latest.x86_64-musl.tar.xz" \
             -o /tmp/xbps.tar.xz
-          sudo tar xf /tmp/xbps.tar.xz -C /usr/local/bin \
-            --strip-components=3 ./usr/bin/xbps-create
-          sudo chmod +x /usr/local/bin/xbps-create
+          # Extract both the symlink and the actual static binary
+          sudo tar xf /tmp/xbps.tar.xz -C /usr/local/bin --strip-components=3 \
+            ./usr/bin/xbps-create ./usr/bin/xbps-create.static
+          sudo chmod +x /usr/local/bin/xbps-create.static
           xbps-create --version
 
       - name: Build .xbps
