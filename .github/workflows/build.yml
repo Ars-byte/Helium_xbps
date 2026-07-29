@@ -84,12 +84,13 @@ jobs:
           cp -a helium-extract/opt pkg-destdir/
           cp -a helium-extract/usr pkg-destdir/
           
-          # Install xbps-create from Void repo
+          # Install xbps-create in workspace
           curl -sL "https://repo-default.voidlinux.org/static/xbps-static-latest.x86_64-musl.tar.xz" \
             -o xbps.tar.xz
-          tar xf xbps.tar.xz -C /tmp
-          cp /tmp/usr/bin/xbps-create /usr/bin/xbps-create
-          chmod +x /usr/bin/xbps-create
+          tar xf xbps.tar.xz -C /tmp && \
+          cp /tmp/usr/bin/xbps-create . && \
+          chmod +x xbps-create && \
+          echo "xbps-create installed in workspace"
           echo "xbps-create installed and ready"
 
           # Wrapper script
@@ -138,7 +139,7 @@ jobs:
           # Convert Debian version (0.14.9.1-1) to xbps format (0.14.9.1_1)
           XBPS_VERSION=$(echo "${UPSTREAM_VERSION}" | sed 's/-/_/')
           echo "  XBPS version: $XBPS_VERSION"
-          xbps-create \
+          ./xbps-create \
             -A x86_64 \
             -n "${PKGNAME}-${XBPS_VERSION}" \
             -s "Helium - privacy-first Chromium-based web browser" \
