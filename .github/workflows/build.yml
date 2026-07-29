@@ -51,15 +51,13 @@ jobs:
           curl -sL -o "$DEB_FILE" "$DOWNLOAD_URL"
           echo "  Downloaded: $(du -h "$DEB_FILE" | cut -f1)"
           
-          # Extract .deb
+          # Extract .deb (using dpkg-deb, pre-installed on Ubuntu)
           echo "[*] Extracting..."
           rm -rf deb-root pkg-destdir
           mkdir -p deb-root pkg-destdir
-          cd deb-root
-          ar x "../$DEB_FILE"
-          tar xf data.tar.xz -C .
-          tar xf control.tar.xz -C /tmp
-          cd "$OLDPWD"
+          dpkg-deb -R "$DEB_FILE" deb-root
+
+          ORIG_DESC=$(grep "^Description:" deb-root/DEBIAN/control 2>/dev/null | head -1 | cut -d' ' -f2-)
           
           # Size optimizations
           echo "[*] Optimizing size..."
