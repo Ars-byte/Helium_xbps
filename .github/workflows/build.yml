@@ -49,13 +49,13 @@ jobs:
           
           # Extract .deb with ar + tar (native Linux tools, no dpkg-deb)
           echo "[*] Extracting..."
-          rm -rf pkg-destdir /tmp/helium-deb /tmp/helium-extract
-          mkdir -p /tmp/helium-deb /tmp/helium-extract pkg-destdir
-          cd /tmp/helium-deb
+          rm -rf pkg-destdir helium-deb helium-extract
+          mkdir -p helium-deb helium-extract pkg-destdir
+          cd helium-deb
           ar x "${GITHUB_WORKSPACE}/${DEB_FILE}"
-          tar xf data.tar.xz -C /tmp/helium-extract
-          mkdir -p /tmp/helium-extract/DEBIAN
-          tar xf control.tar.xz -C /tmp/helium-extract/DEBIAN
+          tar xf data.tar.xz -C ../helium-extract
+          mkdir -p ../helium-extract/DEBIAN
+          tar xf control.tar.xz -C ../helium-extract/DEBIAN
           cd "${GITHUB_WORKSPACE}"
 
           ORIG_DESC=$(grep "^Description:" /tmp/helium-extract/DEBIAN/control 2>/dev/null | head -1 | cut -d' ' -f2-)
@@ -86,8 +86,8 @@ jobs:
           
           # Install xbps-create from Void repo
           curl -sL "https://repo-default.voidlinux.org/static/xbps-static-latest.x86_64-musl.tar.xz" \
-            -o /tmp/xbps.tar.xz
-          tar xf /tmp/xbps.tar.xz -C /tmp
+            -o xbps.tar.xz
+          tar xf xbps.tar.xz -C /tmp
           cp /tmp/usr/bin/xbps-create /usr/bin/xbps-create
           chmod +x /usr/bin/xbps-create
           echo "xbps-create installed and ready"
