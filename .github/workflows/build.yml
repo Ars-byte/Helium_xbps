@@ -54,6 +54,7 @@ jobs:
           cd /tmp/helium-deb
           ar x "${GITHUB_WORKSPACE}/${DEB_FILE}"
           tar xf data.tar.xz -C /tmp/helium-extract
+          mkdir -p /tmp/helium-extract/DEBIAN
           tar xf control.tar.xz -C /tmp/helium-extract/DEBIAN
           cd "${GITHUB_WORKSPACE}"
           
