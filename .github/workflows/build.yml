@@ -73,20 +73,19 @@ jobs:
            # .info debug metadata (~71.5 MB) — debug files
            find /tmp/helium-extract/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
 
-           # Non-English locales (~278 MB) — keep only en-US locale
-           find /tmp/helium-extract/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
+            # Non-English locales (~278 MB) — keep only en-US locale
+            find /tmp/helium-extract/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
 
-# No se elimina el crashpad handler, es necesario para el funcionamiento de Helium
+            # SwiftShader (~4.2 MB) — software Vulkan fallback
+            rm -f /tmp/helium-extract/opt/helium/libvk_swiftshader.so
+            rm -f /tmp/helium-extract/opt/helium/vk_swiftshader_icd.json
 
-           # SwiftShader (~4.2 MB) — software Vulkan fallback
-           rm -f /tmp/helium-extract/opt/helium/libvk_swiftshader.so
-           rm -f /tmp/helium-extract/opt/helium/vk_swiftshader_icd.json
+            # HiDPI assets (~1.2 MB) — 200% scaling resources
+            rm -f /tmp/helium-extract/opt/helium/chrome_200_percent.pak
 
-           # HiDPI assets (~1.2 MB) — 200% scaling resources
-           rm -f /tmp/helium-extract/opt/helium/chrome_200_percent.pak
-          
-          SAVED=$(( (BEFORE - AFTER) / 1048576 ))
-          echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
+            AFTER=$(du -sb /tmp/helium-extract | awk '{print $1}')
+            SAVED=$(( (BEFORE - AFTER) / 1048576 ))
+            echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
           
           # Build .xbps destdir
           echo "[*] Creating .xbps package structure..."
