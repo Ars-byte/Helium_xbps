@@ -42,17 +42,28 @@ chmod +x build-helium-xbps.sh
 
 Requires: `curl`, `jq`, `binutils`, `xbps`
 
-## Size optimizations
+# Size optimizations
+
+This package is heavily optimized to reduce size while maintaining functionality. The following files and directories are removed to achieve a lightweight package:
+
+- **chromedriver**: Removed (~21 MB) — WebDriver for automation
+- **Debug metadata (`.info` files)**: Removed (~71.5 MB) — Debug files
+- **Non-English locales**: Removed (~278 MB) — Only `en-US` locale kept
+- **Crashpad handler**: Removed (~1.9 MB) — Crash reporting daemon
+- **SwiftShader**: Removed (~4.2 MB) — Software Vulkan fallback
+- **HiDPI assets**: Removed (~1.2 MB) — 200% scaling resources
+
+**Total savings: ~400 MB uncompressed**
 
 | Removed              | Uncompressed | Reason                          |
 |----------------------|-------------|---------------------------------|
 | chromedriver         | ~21 MB      | WebDriver for automation        |
-| `*.info` files       | ~65 MB      | Debug metadata (.pak.info)     |
-| i18n locales         | ~45 MB      | Only `en-US` kept               |
-| crashpad handler     | ~2 MB       | Crash reporting daemon          |
-| SwiftShader          | ~4 MB       | Software Vulkan fallback        |
-| 200% HiDPI assets    | ~1 MB       | 2x scaling resources            |
-| **Total saved**      | **~138 MB** | —                               |
+| `*.info` files       | ~71.5 MB    | Debug metadata (.pak.info)     |
+| Non-English locales  | ~278 MB     | Only `en-US` locale kept        |
+| crashpad handler     | ~1.9 MB     | Crash reporting daemon          |
+| SwiftShader          | ~4.2 MB     | Software Vulkan fallback        |
+| 200% HiDPI assets    | ~1.2 MB     | 2x scaling resources            |
+| **Total saved**      | **~400 MB** | —                               |
 
 ## License
 

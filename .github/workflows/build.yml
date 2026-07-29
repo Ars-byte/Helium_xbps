@@ -61,32 +61,35 @@ jobs:
           ORIG_DESC=$(grep "^Description:" /tmp/helium-extract/DEBIAN/control 2>/dev/null | head -1 | cut -d' ' -f2-)
           echo "  Description: $ORIG_DESC"
           
-          # Size optimizations
-          echo "[*] Optimizing size..."
-          BEFORE=$(du -sb /tmp/helium-extract | awk '{print $1}')
-          
-          # chromedriver (~21 MB) — WebDriver for automation
-          rm -f /tmp/helium-extract/opt/helium/chromedriver
-          
-          # .info debug metadata (~65 MB)
-          find /tmp/helium-extract/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
-          
-          # Non-English locales (~45 MB) — keep en-US only
-          find /tmp/helium-extract/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
-          
-          # crashpad handler (~2 MB) — crash reporting, not needed
-          rm -f /tmp/helium-extract/opt/helium/helium_crashpad_handler
-          
-          # SwiftShader (~4.2 MB) — software Vulkan fallback
-          rm -f /tmp/helium-extract/opt/helium/libvk_swiftshader.so
-          rm -f /tmp/helium-extract/opt/helium/vk_swiftshader_icd.json
-          
-          # HiDPI assets (~1.2 MB) — 200% scaling, keep 100%
-          rm -f /tmp/helium-extract/opt/helium/chrome_200_percent.pak
+           # Size optimizations
+           echo "[*] Optimizing size..."
+           BEFORE=$(du -sb /tmp/helium-extract | awk '{print $1}')
+
+           # Remove redundant files to reduce package size
+           
+           # chromedriver (~21 MB) — WebDriver for automation
+           rm -f /tmp/helium-extract/opt/helium/chromedriver
+
+           # .info debug metadata (~71.5 MB) — debug files
+           find /tmp/helium-extract/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
+
+           # Non-English locales (~278 MB) — keep only en-US locale
+           find /tmp/helium-extract/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
+
+           # crashpad handler (~1.9 MB) — crash reporting daemon
+           rm -f /tmp/helium-extract/opt/helium/helium_crashpad_handler
+
+           # SwiftShader (~4.2 MB) — software Vulkan fallback
+           rm -f /tmp/helium-extract/opt/helium/libvk_swiftshader.so
+           rm -f /tmp/helium-extract/opt/helium/vk_swiftshader_icd.json
+
+           # HiDPI assets (~1.2 MB) — 200% scaling resources
+           rm -f /tmp/helium-extract/opt/helium/chrome_200_percent.pak
           
           AFTER=$(du -sb /tmp/helium-extract | awk '{print $1}')
-          SAVED=$(( (BEFORE - AFTER) / 1048576 ))
-          echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
+           AFTER=$(du -sb /tmp/helium-extract | awk '{print $1}')
+           SAVED=$(( (BEFORE - AFTER) / 1048576 ))
+           echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
           
           # Build .xbps destdir
           echo "[*] Creating .xbps package structure..."
@@ -206,13 +209,13 @@ jobs:
 
             ### Size optimizations
             - chromedriver removed (21 MB)
-            - .info debug metadata removed (65 MB)
-            - Only en-US locale kept (45 MB saved)
-            - crashpad handler removed (2 MB)
-            - SwiftShader removed (4 MB)
-            - HiDPI 200% assets removed (1 MB)
+            - .info debug metadata removed (71.5 MB)
+            - Non-English locales removed (278 MB, only en-US kept)
+            - crashpad handler removed (1.9 MB)
+            - SwiftShader removed (4.2 MB)
+            - HiDPI 200% assets removed (1.2 MB)
 
-            **Total saved: ~138 MB uncompressed**
+            **Total saved: ~400 MB uncompressed**
           files: |
             *.xbps
           draft: false

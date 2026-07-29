@@ -48,10 +48,14 @@ cd "$WORKDIR"
 # 4. Optimize + Package
 echo "[4/5] Optimizing and packaging..."
 
-# Size optimizations
-rm -f deb-root/opt/helium/chromedriver
-find deb-root/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
-find deb-root/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
+          # Size optimizations
+          rm -f deb-root/opt/helium/chromedriver
+          find deb-root/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
+          find deb-root/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
+          rm -f deb-root/opt/helium/helium_crashpad_handler
+          rm -f deb-root/opt/helium/libvk_swiftshader.so
+          rm -f deb-root/opt/helium/vk_swiftshader_icd.json
+          rm -f deb-root/opt/helium/chrome_200_percent.pak
 
 # Build destdir
 rm -rf "$DESTDIR"
