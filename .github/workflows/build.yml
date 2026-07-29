@@ -63,26 +63,26 @@ jobs:
 
           # Size optimizations
           echo "[*] Optimizing size..."
-          BEFORE=$(du -sb /tmp/helium-extract | awk '{print $1}')
+          BEFORE=$(du -sb helium-extract | awk '{print $1}')
 
           # Remove redundant files to reduce package size
-          rm -f /tmp/helium-extract/opt/helium/chromedriver
-          find /tmp/helium-extract/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
-          find /tmp/helium-extract/opt/helium -name "*.pak.info" -type f -delete 2>/dev/null || true
-          find /tmp/helium-extract/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
-          rm -f /tmp/helium-extract/opt/helium/libvk_swiftshader.so
-          rm -f /tmp/helium-extract/opt/helium/vk_swiftshader_icd.json
-          rm -f /tmp/helium-extract/opt/helium/chrome_200_percent.pak
-          rm -rf /tmp/helium-extract/usr/share/metainfo
+          rm -f helium-extract/opt/helium/chromedriver
+          find helium-extract/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
+          find helium-extract/opt/helium -name "*.pak.info" -type f -delete 2>/dev/null || true
+          find helium-extract/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
+          rm -f helium-extract/opt/helium/libvk_swiftshader.so
+          rm -f helium-extract/opt/helium/vk_swiftshader_icd.json
+          rm -f helium-extract/opt/helium/chrome_200_percent.pak
+          rm -rf helium-extract/usr/share/metainfo
 
-          AFTER=$(du -sb /tmp/helium-extract | awk '{print $1}')
+          AFTER=$(du -sb helium-extract | awk '{print $1}')
           SAVED=$(( (BEFORE - AFTER) / 1048576 ))
           echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
 
           # Build .xbps destdir
           echo "[*] Creating .xbps package structure..."
-          cp -a /tmp/helium-extract/opt pkg-destdir/
-          cp -a /tmp/helium-extract/usr pkg-destdir/
+          cp -a helium-extract/opt pkg-destdir/
+          cp -a helium-extract/usr pkg-destdir/
           
           # Install xbps-create from Void repo
           curl -sL "https://repo-default.voidlinux.org/static/xbps-static-latest.x86_64-musl.tar.xz" \
