@@ -84,13 +84,15 @@ jobs:
           cp -a helium-extract/opt pkg-destdir/
           cp -a helium-extract/usr pkg-destdir/
           
-          # Install xbps-create in workspace
+          # Install xbps-create in a temporary directory
+          echo "[*] Installing xbps-create..."
           curl -sL "https://repo-default.voidlinux.org/static/xbps-static-latest.x86_64-musl.tar.xz" \
             -o xbps.tar.xz
-          tar xf xbps.tar.xz -C /tmp && \
-          cp /tmp/usr/bin/xbps-create . && \
-          chmod +x xbps-create && \
-          echo "xbps-create installed in workspace"
+          mkdir -p /tmp/xbps-tools
+          tar xf xbps.tar.xz -C /tmp/xbps-tools --strip-components=3 ./usr/bin/xbps-create
+          cp /tmp/xbps-tools/xbps-create .
+          chmod +x xbps-create
+          echo "xbps-create installed and ready"
           echo "xbps-create installed and ready"
 
           # Wrapper script
