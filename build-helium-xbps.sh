@@ -112,7 +112,8 @@ if [ -f "$DESTDIR/opt/helium/helium" ]; then
 fi
 
 # Build
-XBPS_VERSION="${UPSTREAM_VERSION}_1"
+# Convert Debian version (0.14.9.1-1) to xbps format (0.14.9.1_1)
+XBPS_VERSION=$(echo "${UPSTREAM_VERSION}" | sed 's/-/_/')
 xbps-create \
     -A x86_64 \
     -n "${PKGNAME}-${XBPS_VERSION}" \
