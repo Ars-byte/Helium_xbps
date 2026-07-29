@@ -13,14 +13,10 @@ jobs:
       filename: ${{ steps.build.outputs.filename }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install xbps-create
+      - name: Install xbps-create from Void repo
         run: |
           curl -sL "https://repo-default.voidlinux.org/static/xbps-static-latest.x86_64-musl.tar.xz" \
             -o /tmp/xbps.tar.xz
-          # Extract both the symlink and the actual static binary
           sudo tar xf /tmp/xbps.tar.xz -C /usr/local/bin --strip-components=3 \
             ./usr/bin/xbps-create ./usr/bin/xbps-create.static
           sudo chmod +x /usr/local/bin/xbps-create.static
@@ -51,30 +47,52 @@ jobs:
           curl -sL -o "$DEB_FILE" "$DOWNLOAD_URL"
           echo "  Downloaded: $(du -h "$DEB_FILE" | cut -f1)"
           
-          # Extract .deb (using dpkg-deb, pre-installed on Ubuntu)
+          # Extract .deb with ar + tar (native Linux tools, no dpkg-deb)
           echo "[*] Extracting..."
-          rm -rf deb-root pkg-destdir
-          mkdir -p deb-root pkg-destdir
-          dpkg-deb -R "$DEB_FILE" deb-root
-
-          ORIG_DESC=$(grep "^Description:" deb-root/DEBIAN/control 2>/dev/null | head -1 | cut -d' ' -f2-)
+          rm -rf pkg-destdir /tmp/helium-deb /tmp/helium-extract
+          mkdir -p /tmp/helium-deb /tmp/helium-extract pkg-destdir
+          cd /tmp/helium-deb
+          ar x "${GITHUB_WORKSPACE}/${DEB_FILE}"
+          tar xf data.tar.xz -C /tmp/helium-extract
+          tar xf control.tar.xz -C /tmp/helium-extract/DEBIAN
+          cd "${GITHUB_WORKSPACE}"
+          
+          ORIG_DESC=$(grep "^Description:" /tmp/helium-extract/DEBIAN/control 2>/dev/null | head -1 | cut -d' ' -f2-)
+          echo "  Description: $ORIG_DESC"
           
           # Size optimizations
           echo "[*] Optimizing size..."
-          BEFORE=$(du -sb deb-root | awk '{print $1}')
-          rm -f deb-root/opt/helium/chromedriver
-          find deb-root/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
-          find deb-root/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
-          AFTER=$(du -sb deb-root | awk '{print $1}')
+          BEFORE=$(du -sb /tmp/helium-extract | awk '{print $1}')
+          
+          # chromedriver (~21 MB) — WebDriver for automation
+          rm -f /tmp/helium-extract/opt/helium/chromedriver
+          
+          # .info debug metadata (~65 MB)
+          find /tmp/helium-extract/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
+          
+          # Non-English locales (~45 MB) — keep en-US only
+          find /tmp/helium-extract/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
+          
+          # crashpad handler (~2 MB) — crash reporting, not needed
+          rm -f /tmp/helium-extract/opt/helium/helium_crashpad_handler
+          
+          # SwiftShader (~4.2 MB) — software Vulkan fallback
+          rm -f /tmp/helium-extract/opt/helium/libvk_swiftshader.so
+          rm -f /tmp/helium-extract/opt/helium/vk_swiftshader_icd.json
+          
+          # HiDPI assets (~1.2 MB) — 200% scaling, keep 100%
+          rm -f /tmp/helium-extract/opt/helium/chrome_200_percent.pak
+          
+          AFTER=$(du -sb /tmp/helium-extract | awk '{print $1}')
           SAVED=$(( (BEFORE - AFTER) / 1048576 ))
           echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
           
           # Build .xbps destdir
           echo "[*] Creating .xbps package structure..."
-          cp -a deb-root/opt pkg-destdir/
-          cp -a deb-root/usr pkg-destdir/
+          cp -a /tmp/helium-extract/opt pkg-destdir/
+          cp -a /tmp/helium-extract/usr pkg-destdir/
           
-          # Wrapper
+          # Wrapper script
           mkdir -p pkg-destdir/usr/bin
           rm -f pkg-destdir/usr/bin/helium
           cat > pkg-destdir/usr/bin/helium << 'WRAPPER'
@@ -87,7 +105,7 @@ jobs:
           WRAPPER
           chmod 755 pkg-destdir/usr/bin/helium
           
-          # INSTALL script
+          # INSTALL script (post-install hooks)
           cat > pkg-destdir/INSTALL << 'INSTSCRIPT'
           case "${ACTION}" in
           post)
@@ -104,7 +122,7 @@ jobs:
           INSTSCRIPT
           chmod 755 pkg-destdir/INSTALL
           
-          # REMOVE script
+          # REMOVE script (post-remove hooks)
           cat > pkg-destdir/REMOVE << 'REMSRIPT'
           case "${ACTION}" in
           post)
@@ -120,11 +138,11 @@ jobs:
           REMSRIPT
           chmod 755 pkg-destdir/REMOVE
           
-          # Detect shared libs
+          # Detect required shared libraries from the binary
           SHLIBS=$(readelf -d pkg-destdir/opt/helium/helium 2>/dev/null \
             | grep NEEDED | awk '{print $NF}' | tr -d '[]' | tr '\n' ' ')
           
-          # Build .xbps
+          # Build .xbps with Void's xbps-create
           XBPS_VERSION="${UPSTREAM_VERSION}_1"
           xbps-create \
             -A x86_64 \
@@ -138,7 +156,7 @@ jobs:
             -l "GPL-3.0-only" \
             -t "web-browser" \
             --provides "www-browser-0_1" \
-            --compression zstd \
+            --compression xz \
             --shlib-requires "$SHLIBS" \
             pkg-destdir
           
@@ -185,8 +203,13 @@ jobs:
 
             ### Size optimizations
             - chromedriver removed (21 MB)
-            - .info debug files removed (65 MB)
+            - .info debug metadata removed (65 MB)
             - Only en-US locale kept (45 MB saved)
+            - crashpad handler removed (2 MB)
+            - SwiftShader removed (4 MB)
+            - HiDPI 200% assets removed (1 MB)
+
+            **Total saved: ~138 MB uncompressed**
           files: |
             *.xbps
           draft: false

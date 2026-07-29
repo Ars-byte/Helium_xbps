@@ -44,12 +44,15 @@ Requires: `curl`, `jq`, `binutils`, `xbps`
 
 ## Size optimizations
 
-| Removed          | Uncompressed | Reason                        |
-|------------------|-------------|-------------------------------|
-| chromedriver     | ~21 MB      | WebDriver for automation      |
-| `*.info` files   | ~65 MB      | Debug metadata (.pak.info)   |
-| i18n locales     | ~45 MB      | Only `en-US` kept             |
-| **Total saved**  | **~137 MB** | —                             |
+| Removed              | Uncompressed | Reason                          |
+|----------------------|-------------|---------------------------------|
+| chromedriver         | ~21 MB      | WebDriver for automation        |
+| `*.info` files       | ~65 MB      | Debug metadata (.pak.info)     |
+| i18n locales         | ~45 MB      | Only `en-US` kept               |
+| crashpad handler     | ~2 MB       | Crash reporting daemon          |
+| SwiftShader          | ~4 MB       | Software Vulkan fallback        |
+| 200% HiDPI assets    | ~1 MB       | 2x scaling resources            |
+| **Total saved**      | **~138 MB** | —                               |
 
 ## License
 
