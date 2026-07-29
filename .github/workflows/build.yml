@@ -178,8 +178,14 @@ jobs:
           echo "  Package: $XBPS_FILE"
           echo "version=$XBPS_VERSION" >> "$GITHUB_OUTPUT"
           echo "filename=$XBPS_FILE" >> "$GITHUB_OUTPUT"
-          mv "$XBPS_FILE" "${GITHUB_WORKSPACE}/"
-          echo "Package created and moved to workspace: $XBPS_FILE"
+          SRC="$(realpath "$XBPS_FILE")"
+          DST="$(realpath "${GITHUB_WORKSPACE}/$XBPS_FILE")"
+          if [ "$SRC" != "$DST" ]; then
+            mv "$XBPS_FILE" "${GITHUB_WORKSPACE}/"
+            echo "Package created and moved to workspace: $XBPS_FILE"
+          else
+            echo "Package already in workspace: $DST"
+          fi
 
       - name: Upload .xbps artifact
         uses: actions/upload-artifact@v4
