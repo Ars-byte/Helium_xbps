@@ -76,8 +76,7 @@ jobs:
            # Non-English locales (~278 MB) — keep only en-US locale
            find /tmp/helium-extract/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
 
-           # crashpad handler (~1.9 MB) — crash reporting daemon
-           rm -f /tmp/helium-extract/opt/helium/helium_crashpad_handler
+# No se elimina el crashpad handler, es necesario para el funcionamiento de Helium
 
            # SwiftShader (~4.2 MB) — software Vulkan fallback
            rm -f /tmp/helium-extract/opt/helium/libvk_swiftshader.so
