@@ -85,7 +85,6 @@ jobs:
            # HiDPI assets (~1.2 MB) — 200% scaling resources
            rm -f /tmp/helium-extract/opt/helium/chrome_200_percent.pak
           
-          AFTER=$(du -sb /tmp/helium-extract | awk '{print $1}')
            AFTER=$(du -sb /tmp/helium-extract | awk '{print $1}')
            SAVED=$(( (BEFORE - AFTER) / 1048576 ))
            echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
