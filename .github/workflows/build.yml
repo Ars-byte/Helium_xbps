@@ -1,4 +1,4 @@
-name: Build Helium .xbps
+name: build_helium_xbps
 
 on:
   workflow_dispatch:
