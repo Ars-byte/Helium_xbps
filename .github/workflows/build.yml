@@ -61,26 +61,16 @@ jobs:
           ORIG_DESC=$(grep "^Description:" /tmp/helium-extract/DEBIAN/control 2>/dev/null | head -1 | cut -d' ' -f2-)
           echo "  Description: $ORIG_DESC"
           
-           # Size optimizations
-           echo "[*] Optimizing size..."
-           BEFORE=$(du -sb /tmp/helium-extract | awk '{print $1}')
+            # Size optimizations
+            echo "[*] Optimizing size..."
+            BEFORE=$(du -sb /tmp/helium-extract | awk '{print $1}')
 
-           # Remove redundant files to reduce package size
-           
-           # chromedriver (~21 MB) — WebDriver for automation
-           rm -f /tmp/helium-extract/opt/helium/chromedriver
-
-           # .info debug metadata (~71.5 MB) — debug files
-           find /tmp/helium-extract/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
-
-            # Non-English locales (~278 MB) — keep only en-US locale
+            # Remove redundant files to reduce package size
+            rm -f /tmp/helium-extract/opt/helium/chromedriver
+            find /tmp/helium-extract/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
             find /tmp/helium-extract/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
-
-            # SwiftShader (~4.2 MB) — software Vulkan fallback
             rm -f /tmp/helium-extract/opt/helium/libvk_swiftshader.so
             rm -f /tmp/helium-extract/opt/helium/vk_swiftshader_icd.json
-
-            # HiDPI assets (~1.2 MB) — 200% scaling resources
             rm -f /tmp/helium-extract/opt/helium/chrome_200_percent.pak
 
             AFTER=$(du -sb /tmp/helium-extract | awk '{print $1}')
