@@ -85,8 +85,8 @@ jobs:
            # HiDPI assets (~1.2 MB) — 200% scaling resources
            rm -f /tmp/helium-extract/opt/helium/chrome_200_percent.pak
           
-            SAVED=$(( (BEFORE - AFTER) / 1048576 ))
-            echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
+          SAVED=$(( (BEFORE - AFTER) / 1048576 ))
+          echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
           
           # Build .xbps destdir
           echo "[*] Creating .xbps package structure..."
