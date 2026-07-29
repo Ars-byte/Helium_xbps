@@ -57,31 +57,41 @@ jobs:
           mkdir -p /tmp/helium-extract/DEBIAN
           tar xf control.tar.xz -C /tmp/helium-extract/DEBIAN
           cd "${GITHUB_WORKSPACE}"
-          
+
           ORIG_DESC=$(grep "^Description:" /tmp/helium-extract/DEBIAN/control 2>/dev/null | head -1 | cut -d' ' -f2-)
           echo "  Description: $ORIG_DESC"
-          
-            # Size optimizations
-            echo "[*] Optimizing size..."
-            BEFORE=$(du -sb /tmp/helium-extract | awk '{print $1}')
 
-            # Remove redundant files to reduce package size
-            rm -f /tmp/helium-extract/opt/helium/chromedriver
-            find /tmp/helium-extract/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
-            find /tmp/helium-extract/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
-            rm -f /tmp/helium-extract/opt/helium/libvk_swiftshader.so
-            rm -f /tmp/helium-extract/opt/helium/vk_swiftshader_icd.json
-            rm -f /tmp/helium-extract/opt/helium/chrome_200_percent.pak
+          # Size optimizations
+          echo "[*] Optimizing size..."
+          BEFORE=$(du -sb /tmp/helium-extract | awk '{print $1}')
 
-            AFTER=$(du -sb /tmp/helium-extract | awk '{print $1}')
-            SAVED=$(( (BEFORE - AFTER) / 1048576 ))
-            echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
-          
+          # Remove redundant files to reduce package size
+          rm -f /tmp/helium-extract/opt/helium/chromedriver
+          find /tmp/helium-extract/opt/helium -name "*.info" -type f -delete 2>/dev/null || true
+          find /tmp/helium-extract/opt/helium -name "*.pak.info" -type f -delete 2>/dev/null || true
+          find /tmp/helium-extract/opt/helium/locales -type f ! -name "en-US.pak" -delete 2>/dev/null || true
+          rm -f /tmp/helium-extract/opt/helium/libvk_swiftshader.so
+          rm -f /tmp/helium-extract/opt/helium/vk_swiftshader_icd.json
+          rm -f /tmp/helium-extract/opt/helium/chrome_200_percent.pak
+          rm -rf /tmp/helium-extract/usr/share/metainfo
+
+          AFTER=$(du -sb /tmp/helium-extract | awk '{print $1}')
+          SAVED=$(( (BEFORE - AFTER) / 1048576 ))
+          echo "  Size: $((BEFORE/1048576))MB -> $((AFTER/1048576))MB (${SAVED}MB saved)"
+
           # Build .xbps destdir
           echo "[*] Creating .xbps package structure..."
           cp -a /tmp/helium-extract/opt pkg-destdir/
           cp -a /tmp/helium-extract/usr pkg-destdir/
           
+          # Install xbps-create from Void repo
+          curl -sL "https://repo-default.voidlinux.org/static/xbps-static-latest.x86_64-musl.tar.xz" \
+            -o /tmp/xbps.tar.xz
+          tar xf /tmp/xbps.tar.xz -C /tmp
+          cp /tmp/usr/bin/xbps-create /usr/bin/xbps-create
+          chmod +x /usr/bin/xbps-create
+          echo "xbps-create installed and ready"
+
           # Wrapper script
           mkdir -p pkg-destdir/usr/bin
           rm -f pkg-destdir/usr/bin/helium
@@ -94,7 +104,7 @@ jobs:
           exec /opt/helium/helium "$@"
           WRAPPER
           chmod 755 pkg-destdir/usr/bin/helium
-          
+
           # INSTALL script (post-install hooks)
           cat > pkg-destdir/INSTALL << 'INSTSCRIPT'
           case "${ACTION}" in
@@ -103,15 +113,11 @@ jobs:
               update-desktop-database 2>/dev/null || true
               touch --no-create /usr/share/icons/hicolor 2>/dev/null || true
               gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
-              if command -v apparmor_parser > /dev/null 2>&1 && [ -d /etc/apparmor.d ]; then
-                  cp /opt/helium/apparmor.cfg /etc/apparmor.d/helium-bin 2>/dev/null || true
-                  apparmor_parser -r -W -T /etc/apparmor.d/helium-bin 2>/dev/null || true
-              fi
               ;;
           esac
           INSTSCRIPT
           chmod 755 pkg-destdir/INSTALL
-          
+
           # REMOVE script (post-remove hooks)
           cat > pkg-destdir/REMOVE << 'REMSRIPT'
           case "${ACTION}" in
@@ -119,19 +125,15 @@ jobs:
               update-desktop-database 2>/dev/null || true
               touch --no-create /usr/share/icons/hicolor 2>/dev/null || true
               gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
-              if [ -f /etc/apparmor.d/helium-bin ]; then
-                  command -v apparmor_parser > /dev/null 2>&1 && apparmor_parser -R /etc/apparmor.d/helium-bin 2>/dev/null || true
-                  rm -f /etc/apparmor.d/helium-bin
-              fi
               ;;
           esac
           REMSRIPT
           chmod 755 pkg-destdir/REMOVE
-          
+
           # Detect required shared libraries from the binary
           SHLIBS=$(readelf -d pkg-destdir/opt/helium/helium 2>/dev/null \
             | grep NEEDED | awk '{print $NF}' | tr -d '[]' | tr '\n' ' ')
-          
+
           # Build .xbps with Void's xbps-create
           # Convert Debian version (0.14.9.1-1) to xbps format (0.14.9.1_1)
           XBPS_VERSION=$(echo "${UPSTREAM_VERSION}" | sed 's/-/_/')
@@ -140,9 +142,7 @@ jobs:
             -A x86_64 \
             -n "${PKGNAME}-${XBPS_VERSION}" \
             -s "Helium - privacy-first Chromium-based web browser" \
-            -S "Helium is a privacy-first web browser based on Chromium.
-          It features unbiased ad-blocking, no bloat, and no noise.
-          Built for people, with love." \
+            -S "Helium is a privacy-first web browser based on Chromium. It features unbiased ad-blocking, no bloat, and no noise. Built for people, with love." \
             -m "Zeke Ezequielgk <ezequieldtz@tuta.io>" \
             -H "https://helium.computer" \
             -l "GPL-3.0-only" \
@@ -153,10 +153,11 @@ jobs:
             pkg-destdir
           
           XBPS_FILE="${PKGNAME}-${XBPS_VERSION}.x86_64.xbps"
-          echo "  Package: $XBPS_FILE ($(du -h "$XBPS_FILE" | cut -f1))"
-          
+          echo "  Package: $XBPS_FILE"
           echo "version=$XBPS_VERSION" >> "$GITHUB_OUTPUT"
           echo "filename=$XBPS_FILE" >> "$GITHUB_OUTPUT"
+          mv "$XBPS_FILE" "${GITHUB_WORKSPACE}/"
+          echo "Package created and moved to workspace: $XBPS_FILE"
 
       - name: Upload .xbps artifact
         uses: actions/upload-artifact@v4
